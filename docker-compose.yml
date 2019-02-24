@@ -1,0 +1,59 @@
+version: '3'
+services:
+  db_migrate:
+    image: privacyidea
+    container_name: db_migrate
+    restart: "no"
+    entrypoint: ""
+    depends_on:
+      - postgres
+    labels:
+      - traefik.enable=false
+    volumes:
+      - ./privacyidea/pi.cfg:/etc/privacyidea/pi.cfg
+      - ./privacyidea/enckey:/etc/privacyidea/enckey
+      - ./privacyidea/public.pem:/etc/privacyidea/public.pem
+      - ./privacyidea/private.pem:/etc/privacyidea/private.pem
+    command: pi-manage createdb
+
+  privacyidea:
+    image: privacyidea
+    container_name: privacyidea
+    restart: "always"
+    # entrypoint: ""
+    ports:
+      # - '8080:80'
+      - '5000:5000'
+    labels:
+      - "traefik.frontend.rule=PathPrefixStrip:/"
+    depends_on:
+      - db_migrate
+    volumes:
+      - ./privacyidea/pi.cfg:/etc/privacyidea/pi.cfg
+      - ./privacyidea/enckey:/etc/privacyidea/enckey
+      - ./privacyidea/public.pem:/etc/privacyidea/public.pem
+      - ./privacyidea/private.pem:/etc/privacyidea/private.pem
+    # command: pi-manage runserver --host 0.0.0.0 --port 5000
+
+  postgres:
+    restart: always
+    image: postgres:10.4-alpine
+    container_name: postgres
+    # volumes:
+    #  - ./pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=privacyidea
+      - POSTGRES_PASSWORD=privacyidea
+      - POSTGRES_DB=privacyidea
+    labels:
+      - traefik.enable=false
+
+  traefik:
+    image: traefik  # The official Traefik docker image
+    container_name: traefik
+    command: --api --docker  # Enables the web UI and tells Traefik to listen to docker
+    ports:
+      - "80:80"      # The HTTP port
+      - "8080:8080"  # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # So that Traefik can listen to the Docker events
